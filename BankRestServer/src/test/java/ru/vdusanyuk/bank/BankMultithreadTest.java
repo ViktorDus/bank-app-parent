@@ -6,10 +6,9 @@ import org.glassfish.jersey.test.JerseyTest;
 import org.glassfish.jersey.test.TestProperties;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
-import ru.vdusanyuk.bank.api.ServiceResponse;
-import ru.vdusanyuk.bank.api.TransferRequest;
+import ru.vdusanyuk.bank.json.ServiceResponse;
+import ru.vdusanyuk.bank.json.TransferRequest;
 import ru.vdusanyuk.bank.dao.BankHolder;
 import ru.vdusanyuk.bank.rest.EntryPoint;
 import javax.ws.rs.client.Entity;
@@ -70,7 +69,6 @@ public class BankMultithreadTest extends JerseyTest {
         checkTotalBalance();
     }
 
-
     private ServiceResponse doTrasferRequest(long fromAccountNumber, long toAccountNumber, long amount) throws Exception {
         TransferRequest transfer = new TransferRequest(fromAccountNumber, toAccountNumber, amount);
         Response output = target(TRANSFER_MONEY_PATH).request().post(Entity.entity(transfer, MediaType.APPLICATION_JSON));
@@ -114,14 +112,14 @@ public class BankMultithreadTest extends JerseyTest {
             executor.awaitTermination(20, TimeUnit.SECONDS);
         }
         catch (InterruptedException e) {
-            System.err.println("termination interrupted");
+            logger.info("termination interrupted");
         }
         finally {
             if (!executor.isTerminated()) {
-                System.err.println("killing non-finished tasks");
+                logger.info("killing non-finished tasks");
             }
             executor.shutdownNow();
-            System.out.println("shutdown finished");
+            logger.info("shutdown finished");
         }
     }
 

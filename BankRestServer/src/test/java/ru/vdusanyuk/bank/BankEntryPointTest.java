@@ -6,10 +6,9 @@ import org.glassfish.jersey.test.JerseyTest;
 import org.glassfish.jersey.test.TestProperties;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
-import ru.vdusanyuk.bank.api.ServiceResponse;
-import ru.vdusanyuk.bank.api.TransferRequest;
+import ru.vdusanyuk.bank.json.ServiceResponse;
+import ru.vdusanyuk.bank.json.TransferRequest;
 import ru.vdusanyuk.bank.dao.BankHolder;
 import ru.vdusanyuk.bank.rest.EntryPoint;
 

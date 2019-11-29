@@ -1,7 +1,7 @@
 package ru.vdusanyuk.bank.rest;
 
-import ru.vdusanyuk.bank.api.ServiceResponse;
-import ru.vdusanyuk.bank.api.TransferRequest;
+import ru.vdusanyuk.bank.json.ServiceResponse;
+import ru.vdusanyuk.bank.json.TransferRequest;
 import ru.vdusanyuk.bank.dao.BankHolder;
 import ru.vdusanyuk.bank.dao.model.OperationResult;
 
@@ -41,7 +41,7 @@ public class EntryPoint {
     @POST
     @Path("/transfer")
     @Consumes(MediaType.APPLICATION_JSON)
-    public ServiceResponse transferMoney(TransferRequest request) {
+    public ServiceResponse postTransferMoney(TransferRequest request) {
         return validateRequest(request)
                 .orElseGet(() -> generateResponse(
                       bankHolder.submitTransfer(request.getFromAccountNumber(),
@@ -51,11 +51,30 @@ public class EntryPoint {
                 );
     }
 
+    @GET
+    @Path("/transfer")
+    @Produces(MediaType.APPLICATION_JSON)
+    public ServiceResponse getTransferMoney(@QueryParam("fromAccountNumber") Long fromAcntNumber,
+                                            @QueryParam("toAccountNumber") Long toAcntNumber,
+                                            @QueryParam("amount") Long amount ) {
+        return validateRequest(fromAcntNumber, toAcntNumber, amount)
+                .orElseGet(() -> generateResponse(
+                        bankHolder.submitTransfer(fromAcntNumber,
+                                                  toAcntNumber,
+                                                  amount)
+                    )
+                );
+    }
+
+    private Optional<ServiceResponse> validateRequest(Long fromAcntNumber, Long toAcntNumber, Long amount) {
+        return Optional.ofNullable(nullSafeLong(amount) <= 0 || nullSafeLong(fromAcntNumber) <= 0
+               || nullSafeLong(toAcntNumber) <= 0 || nullSafeLong(fromAcntNumber) == nullSafeLong(toAcntNumber) ?
+               new ServiceResponse("ERROR", ERROR_INVALID_REQUEST, null,null) :
+               null);
+    }
+
     private Optional<ServiceResponse> validateRequest(TransferRequest request) {
-        return Optional.ofNullable(
-                request.getAmount() < 0 || request.getFromAccountNumber() <= 0
-                || request.getToAccountNumber() <= 0 || request.getFromAccountNumber() == request.getToAccountNumber()
-                ? new ServiceResponse("ERROR", ERROR_INVALID_REQUEST, null,null) : null);
+        return validateRequest(request.getFromAccountNumber(), request.getToAccountNumber(), request.getAmount());
     }
 
     private ServiceResponse generateResponse(OperationResult result) {
@@ -68,6 +87,10 @@ public class EntryPoint {
         return new ServiceResponse("ERROR",
                 newBalance == null ? ERROR_ACCOUNT_NOT_FOUND : ERROR_BALANCE_NOT_ENOUGH,
                 null, newBalance);
+    }
+
+    private long nullSafeLong(Long value) {
+        return value == null ? 0L : value;
     }
 
 }

@@ -1,4 +1,4 @@
-package ru.vdusanyuk.bank.api;
+package ru.vdusanyuk.bank.json;
 
 import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
@@ -9,12 +9,12 @@ import java.io.Serializable;
 
 @XmlRootElement
 public class TransferRequest implements Serializable {
-     private long fromAccountNumber;
-     private long toAccountNumber;
-     private long amount;
+     private Long fromAccountNumber;
+     private Long toAccountNumber;
+     private Long amount;
 
 
-    public TransferRequest(long fromAccountNumber, long toAccountNumber, long amount) {
+    public TransferRequest(Long fromAccountNumber, Long toAccountNumber, Long amount) {
         this.fromAccountNumber = fromAccountNumber;
         this.toAccountNumber = toAccountNumber;
         this.amount = amount;
@@ -23,15 +23,15 @@ public class TransferRequest implements Serializable {
     //empty constructor is need for JAX-RS serialization
     public TransferRequest() {}
 
-    public long getFromAccountNumber() {
+    public Long getFromAccountNumber() {
         return fromAccountNumber;
     }
 
-    public long getToAccountNumber() {
+    public Long getToAccountNumber() {
         return toAccountNumber;
     }
 
-    public long getAmount() {
+    public Long getAmount() {
         return amount;
     }
 
