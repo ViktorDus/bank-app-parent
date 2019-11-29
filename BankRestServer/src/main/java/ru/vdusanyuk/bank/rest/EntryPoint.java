@@ -1,0 +1,73 @@
+package ru.vdusanyuk.bank.rest;
+
+import ru.vdusanyuk.bank.api.ServiceResponse;
+import ru.vdusanyuk.bank.api.TransferRequest;
+import ru.vdusanyuk.bank.dao.BankHolder;
+import ru.vdusanyuk.bank.dao.model.OperationResult;
+
+import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
+import java.util.Optional;
+
+/**
+ * REST rest for bank inter account transfer
+ */
+
+@Path("/bankService")
+public class EntryPoint {
+
+    private static final String ERROR_ACCOUNT_NOT_FOUND = "Account Not Found.";
+    private static final String ERROR_BALANCE_NOT_ENOUGH = "Balance Not Enough.";
+    private static final String ERROR_INVALID_REQUEST = "Invalid Request.";
+
+    private BankHolder bankHolder = BankHolder.getInstance();
+
+    @GET
+    @Path("/total")
+    @Produces(MediaType.TEXT_HTML)
+    public String getTotal() {
+        return bankHolder.getTotalBalance().toString();
+    }
+
+    @GET
+    @Path("/account/{param}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public ServiceResponse getAccountState(@PathParam("param") Long acntNumber) {
+        OperationResult result = bankHolder.getAccount(acntNumber);
+
+        return generateResponse(result);
+    }
+
+    @POST
+    @Path("/transfer")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public ServiceResponse transferMoney(TransferRequest request) {
+        return validateRequest(request)
+                .orElseGet(() -> generateResponse(
+                      bankHolder.submitTransfer(request.getFromAccountNumber(),
+                                                request.getToAccountNumber(),
+                                                request.getAmount())
+                    )
+                );
+    }
+
+    private Optional<ServiceResponse> validateRequest(TransferRequest request) {
+        return Optional.ofNullable(
+                request.getAmount() < 0 || request.getFromAccountNumber() <= 0
+                || request.getToAccountNumber() <= 0 || request.getFromAccountNumber() == request.getToAccountNumber()
+                ? new ServiceResponse("ERROR", ERROR_INVALID_REQUEST, null,null) : null);
+    }
+
+    private ServiceResponse generateResponse(OperationResult result) {
+        return result.getCode() == 0
+                ? new ServiceResponse("SUCCESS",null, result.getAccountNumber(), result.getBalance())
+                : generateErrorResponse(result.getBalance());
+    }
+
+    private ServiceResponse generateErrorResponse(Long newBalance) {
+        return new ServiceResponse("ERROR",
+                newBalance == null ? ERROR_ACCOUNT_NOT_FOUND : ERROR_BALANCE_NOT_ENOUGH,
+                null, newBalance);
+    }
+
+}
