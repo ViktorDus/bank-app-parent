@@ -27,7 +27,7 @@ Solution concept
 –-- to reduce total time when the bank is under write (exclusive) lock 
 ---– the  transfer operations are put in backlog,  I.e. collect them as pending operations, stored separately per each account. So it does not require exclusively locking entire bank per each request
 (read lock is enough for that)
------schedule periodic task for batch processing of backlog. This operation is bulk and should be more effective than separate locking per each request. It is just one write lock per batch? processed quicly (more-or-less). 
+-----schedule periodic task for batch processing of backlog. This operation is bulk and should be more effective than separate locking per each request. It is just one write lock per batch, expected to process quicker. 
       Also importantly for business, the processing of the  backlog can be scheduled to quiet time having less affecting the user's operations. 
 
      
