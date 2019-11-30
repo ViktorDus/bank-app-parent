@@ -18,13 +18,12 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 /**
- * Bank Holder  holds accounts and perform the following operations:
+ * Bank Holder  holds accounts and perform the operations:
  * - get balance,
  * - read account state,
- * - transfer money from one account to another one
- * @author vdusanyuk
+ * - transfer money from one account to another
+ * @author viktordus
  */
-
 public class BankHolder {
 
     private static final int MAX_ACCOUNT_NO = 10;
@@ -81,7 +80,7 @@ public class BankHolder {
      * @param amount amount for transfer
      * @return  result of operation {@link OperationResult}
      */
-    public OperationResult submitTransfer(Long fromAcntNumber, Long toAcntNumber, long amount) {
+    public OperationResult submitTransfer(long fromAcntNumber, long toAcntNumber, long amount) {
         //generate transaction ID
         long transactionId = System.currentTimeMillis();
         logger.debug("Transfer request: trx#{}  from={}, to={}, amount={}", transactionId, fromAcntNumber, toAcntNumber, amount);
@@ -129,7 +128,7 @@ public class BankHolder {
         readLock.lock();
         try {
             totalBalance = bankAccounts.entrySet().parallelStream()
-                     .mapToLong(acnt -> acnt.getValue().getRealBalance())
+                     .mapToLong(acnt -> acnt.getValue().getRealBalance(false))
                      .sum();
         } finally {
            readLock.unlock();
@@ -150,7 +149,7 @@ public class BankHolder {
         readLock.lock();
         try {
             return account != null ?
-                    new OperationResult(0, null, account.getAccountNumber(), account.getRealBalance()) :
+                    new OperationResult(0, null, account.getAccountNumber(), account.getRealBalance(false)) :
                     new OperationResult(1, "NOT Found", accountNumber, null);
         } finally {
             readLock.unlock();

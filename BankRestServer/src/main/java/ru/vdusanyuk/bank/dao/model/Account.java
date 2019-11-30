@@ -10,18 +10,24 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * Bank account entity
  */
-
 public class Account {
-
+    /**
+     * account unique id
+      */
     private final long accountNumber;
-
+    /*
+    * account balance saved, not imcluding pending and draft transactions
+     */
     private final AtomicLong balance;
+
+    /**
+     * pending transactions stored in this collection till asynch batch processing
+     */
+    private final Map<Transfer, Integer> pendingTransactions = new ConcurrentHashMap<>();
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private final Lock readLock = readWriteLock.readLock();
     private final Lock writeLock = readWriteLock.writeLock();
-    //pending transactions to collect the transfers
-    private final Map<Transfer, Integer> pendingTransactions = new ConcurrentHashMap<>();
 
     /**
      * constructor with args:
@@ -30,7 +36,6 @@ public class Account {
      */
     public Account(long acntNumber, long balance) {
         this.accountNumber = acntNumber;
-
         this.balance = new AtomicLong(balance);
     }
 
@@ -55,17 +60,15 @@ public class Account {
      *
      * @return calculated balance
      */
-    public long getRealBalance() {
+    public long getRealBalance(boolean includeDraft) {
         readLock.lock();
         try {
-            long savedBalance = balance.get();
             long pendingAmt = pendingTransactions.entrySet().stream()
-                    .filter(e -> e.getValue() != null && !e.getKey().isProcessed())
+                    .filter(e -> e.getValue() != null && !e.getKey().isProcessed() &&
+                                 (includeDraft || e.getKey().isPending()))
                     .mapToLong(e -> e.getValue() * e.getKey().getAmount())
                     .sum();
-
-            return savedBalance + pendingAmt;
-
+            return balance.get() + pendingAmt;
         } finally {
             readLock.unlock();
         }
@@ -81,10 +84,9 @@ public class Account {
         if (transfer.isProcessed()) {
             return new OperationResult(1, "Transfer is Processed status", accountNumber, -1L);
         }
-
         readLock.lock();
         try {
-            long oldBalance = getRealBalance();
+            long oldBalance = getRealBalance(true);
             //validate transfer amount for  withdraw operation
             if (isWithdraw && oldBalance < transfer.getAmount()) {
                 transfer.setStatus(TransferStatus.ERROR);
@@ -108,7 +110,7 @@ public class Account {
         }
         writeLock.lock();
         try {
-            balance.set(getRealBalance());
+            balance.set(getRealBalance(false));
             pendingTransactions.clear();
         } finally {
             writeLock.unlock();

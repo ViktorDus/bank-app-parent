@@ -6,11 +6,11 @@ import java.util.concurrent.atomic.AtomicReference;
  *  bean - entity representing money transfer task (transaction)
  */
 public class Transfer {
-    final private long id;
-    final private Account fromAccount;
-    final private Account toAccount;
-    final private long amount;
-    final private AtomicReference<TransferStatus> status;
+    private final long id;
+    private final Account fromAccount;
+    private final Account toAccount;
+    private final long amount;
+    private final AtomicReference<TransferStatus> status;
 
     public Transfer(long id, Account fromAccount, Account toAccount, long amount) {
         this.id = id;
