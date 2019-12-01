@@ -1,4 +1,4 @@
-package ru.vdusanyuk.bank;
+package ru.vdusanyuk.bank.dao;
 
 import org.apache.log4j.Logger;
 import org.glassfish.jersey.server.ResourceConfig;
@@ -32,8 +32,8 @@ public class BankMultithreadTest extends JerseyTest {
 
     @Override
     public Application configure() {
-        enable(TestProperties.LOG_TRAFFIC);
-        enable(TestProperties.DUMP_ENTITY);
+       // enable(TestProperties.LOG_TRAFFIC);
+       // enable(TestProperties.DUMP_ENTITY);
         return new ResourceConfig(EntryPoint.class);
     }
 
@@ -45,7 +45,7 @@ public class BankMultithreadTest extends JerseyTest {
 
     @After
     public void tearDown() throws Exception {
-        Thread.sleep(5000);
+        Thread.sleep(3000);
         super.tearDown();
         logger.info("End test");
     }
@@ -107,7 +107,7 @@ public class BankMultithreadTest extends JerseyTest {
 
     private static void stop(ExecutorService executor) {
         try {
-            System.out.println("attempt to shutdown executor");
+            logger.info("attempt to shutdown executor");
             executor.shutdown();
             executor.awaitTermination(20, TimeUnit.SECONDS);
         }

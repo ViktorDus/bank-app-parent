@@ -18,7 +18,7 @@ public class Account {
     /*
     * account balance saved, not imcluding pending and draft transactions
      */
-    private final AtomicLong balance;
+    private final AtomicLong savedBalance;
 
     /**
      * pending transactions stored in this collection till asynch batch processing
@@ -36,7 +36,7 @@ public class Account {
      */
     public Account(long acntNumber, long balance) {
         this.accountNumber = acntNumber;
-        this.balance = new AtomicLong(balance);
+        this.savedBalance = new AtomicLong(balance);
     }
 
     /**
@@ -51,24 +51,26 @@ public class Account {
      *
      * @return  balance
      */
-    public long getBalance() {
-            return balance.get();
+    public long getSavedBalance() {
+            return savedBalance.get();
     }
 
     /**
      * calculate real balance as sum of saved balance and pending transfer parts
-     *
+     * @param trxStamp  nano time stamp or -1 if no stamp required
+     * @param includeDraft include draft transactions
      * @return calculated balance
      */
-    public long getRealBalance(boolean includeDraft) {
+    public long getStampedBalance(long trxStamp, boolean includeDraft) {
         readLock.lock();
         try {
             long pendingAmt = pendingTransactions.entrySet().stream()
                     .filter(e -> e.getValue() != null && !e.getKey().isProcessed() &&
-                                 (includeDraft || e.getKey().isPending()))
+                                 (includeDraft || e.getKey().isPending()) &&
+                                 (trxStamp <= 0 || e.getKey().getId() < trxStamp))
                     .mapToLong(e -> e.getValue() * e.getKey().getAmount())
                     .sum();
-            return balance.get() + pendingAmt;
+            return savedBalance.get() + pendingAmt;
         } finally {
             readLock.unlock();
         }
@@ -86,7 +88,7 @@ public class Account {
         }
         readLock.lock();
         try {
-            long oldBalance = getRealBalance(true);
+            long oldBalance = getStampedBalance(-1, true );
             //validate transfer amount for  withdraw operation
             if (isWithdraw && oldBalance < transfer.getAmount()) {
                 transfer.setStatus(TransferStatus.ERROR);
@@ -110,10 +112,19 @@ public class Account {
         }
         writeLock.lock();
         try {
-            balance.set(getRealBalance(false));
+            savedBalance.set(getStampedBalance(-1, false));
             pendingTransactions.clear();
         } finally {
             writeLock.unlock();
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Account{" +
+                "accountNumber=" + accountNumber +
+                ", savedBalance=" + savedBalance.get() +
+                ", pendingTransactions=" + pendingTransactions.entrySet() +
+                '}';
     }
 }

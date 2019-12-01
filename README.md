@@ -44,6 +44,8 @@ How to compile project.
 4. Executable jar can be found in the directory (Windows style):
        c:\bank-app\BankRestServer\target\bank-rest-server.jar
 
+How to run Server
+
 simply run it as command
 c:\bank-app>java -jar BankRestServer\target\bank-rest-server.jar
 
@@ -96,4 +98,5 @@ http://localhost:8090/bankService/transfer?fromAccountNumber=3&toAccountNumber=5
 
 How to run unit tests
  - use the maven command
+ - port 9998 should be available
 c:\bank-app> mvn clean test

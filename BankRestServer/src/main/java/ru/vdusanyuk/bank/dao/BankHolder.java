@@ -1,16 +1,17 @@
 package ru.vdusanyuk.bank.dao;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.vdusanyuk.bank.dao.model.Account;
 import ru.vdusanyuk.bank.dao.model.OperationResult;
 import ru.vdusanyuk.bank.dao.model.Transfer;
 import ru.vdusanyuk.bank.dao.model.TransferStatus;
 import ru.vdusanyuk.bank.util.AsyncBatchExecutor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -67,7 +68,6 @@ public class BankHolder {
      */
     public static BankHolder getInstance() {
         if (instance == null) {
-
             instance = new BankHolder();
         }
        return instance;
@@ -81,40 +81,39 @@ public class BankHolder {
      * @return  result of operation {@link OperationResult}
      */
     public OperationResult submitTransfer(long fromAcntNumber, long toAcntNumber, long amount) {
-        //generate transaction ID
-        long transactionId = System.currentTimeMillis();
-        logger.debug("Transfer request: trx#{}  from={}, to={}, amount={}", transactionId, fromAcntNumber, toAcntNumber, amount);
-        //get accounts and validate
+
+        long startTime = System.currentTimeMillis();
+        logger.debug(" Transfer request: from={}, to={}, amount={}", fromAcntNumber, toAcntNumber, amount);
+        //get accounts and validate amount for transfer
         Account fromAccount = bankAccounts.get(fromAcntNumber);
         Account toAccount = bankAccounts.get(toAcntNumber);
         //check existance of all the accounts and positive amount
         if (fromAccount == null || toAccount == null || amount <= 0) {
             logger.error("transfer request invalid!");
-            return new OperationResult(1,"transfer request invalid!", fromAcntNumber, null);
+            return new OperationResult(1, "transfer request invalid!", fromAcntNumber, null);
         }
-
-        Transfer transfer = new Transfer(transactionId, fromAccount, toAccount, amount);
         OperationResult operationResult;
-        long startTime = System.currentTimeMillis();
-        //we should not intersect with writing process, so need read lock
+
         readLock.lock();
+        long transferId = System.nanoTime();
         try {
+            Transfer transfer = new Transfer(transferId, fromAccount, toAccount, amount);
+            //we should not intersect with writing process, so need read lock
             operationResult = fromAccount.addPendingTransaction(transfer, true);
             if (operationResult.getCode() == 0) {
                 toAccount.addPendingTransaction(transfer, false);
                 transfer.setStatus(TransferStatus.PENDING);
                 //process transfer asynchronously
                 transferAsyncExecutor.addProcessingItem(transfer);
-            } else {
-                logger.debug("Deposit operation is skipped because of error at withdraw");
             }
         } finally {
             readLock.unlock();
         }
-        logger.info("transfer#{} {}: from={}, to={}, amount={}, new balance={}, elapsed {} ms",
-                                transactionId, operationResult.getCode() == 0 ? "SUBMITTED" : "REJECTED",
-                                fromAcntNumber, toAcntNumber, amount, operationResult.getBalance(),
-                                System.currentTimeMillis() - startTime);
+        logger.info("transfer#{} {}{}: from={}, to={}, amount={}, new balance={}, elapsed {} ms",
+                transferId, operationResult.getCode() == 0 ? "SUBMITTED" : "REJECTED :",
+                operationResult.getCode() == 0 ? operationResult.getErrorMessage() : "",
+                fromAcntNumber, toAcntNumber, amount, operationResult.getBalance(),
+                System.currentTimeMillis() - startTime);
         return operationResult;
     }
 
@@ -124,36 +123,19 @@ public class BankHolder {
      */
     public Long getTotalBalance() {
         Long totalBalance;
-        long startTime = System.currentTimeMillis();
         readLock.lock();
+        long startTime = System.nanoTime();
         try {
             totalBalance = bankAccounts.entrySet().parallelStream()
-                     .mapToLong(acnt -> acnt.getValue().getRealBalance(false))
+                     .mapToLong(acnt -> acnt.getValue().getStampedBalance(startTime, false))
                      .sum();
         } finally {
            readLock.unlock();
         }
         logger.info("Total Balance requested, result = {}, elapsed {} ms",
-                                      totalBalance, System.currentTimeMillis() - startTime);
+                    totalBalance,
+                    TimeUnit.NANOSECONDS.toMillis (System.nanoTime() - startTime));
         return totalBalance;
-    }
-
-    /**
-     * request  account by account number
-     *
-     * @param accountNumber account number requested
-     * @return operation result object
-     */
-    public OperationResult getAccount(Long accountNumber) {
-        Account account = bankAccounts.get(accountNumber);
-        readLock.lock();
-        try {
-            return account != null ?
-                    new OperationResult(0, null, account.getAccountNumber(), account.getRealBalance(false)) :
-                    new OperationResult(1, "NOT Found", accountNumber, null);
-        } finally {
-            readLock.unlock();
-        }
     }
 
     /**
@@ -181,14 +163,42 @@ public class BankHolder {
                     transfers.size(), System.currentTimeMillis() - startTime);
     }
 
+    /**
+     * request  account by account number
+     *
+     * @param accountNumber account number requested
+     * @return operation result object
+     */
+    public OperationResult getAccount(Long accountNumber) {
+        Account account = bankAccounts.get(accountNumber);
+
+            Long balance = account != null ? account.getStampedBalance(System.nanoTime(), true) : null;
+            logger.info("Account#{} state requested, result = {}", accountNumber, balance);
+            return balance != null ?
+                    new OperationResult(0, null, account.getAccountNumber(), balance) :
+                    new OperationResult(1, "NOT Found", accountNumber, null);
+    }
+
+    /**
+     * getter for bankAccounts member (access = package private, for testing only)
+     * @return Map of bank accounts
+     */
+    Map<Long, Account> getBankAccounts() {
+        return bankAccounts;
+    }
     // initialize bank accounts as: 10 accounts with initial amount of 100 bitcoins
-    public void initBankAccounts() {
-        bankAccounts.clear();
-        bankAccounts.putAll(
-                LongStream.range(MIN_ACCOUNT_NO, MIN_ACCOUNT_NO + MAX_ACCOUNT_NO).boxed()
-                .map(k -> new Account(k, INITIAL_BALANCE))
-                .collect(Collectors.toMap(Account::getAccountNumber, acnt -> acnt))
-        );
+    void initBankAccounts() {
+        writeLock.lock();
+        try {
+            bankAccounts.clear();
+            bankAccounts.putAll(
+                    LongStream.range(MIN_ACCOUNT_NO, MIN_ACCOUNT_NO + MAX_ACCOUNT_NO).boxed()
+                            .map(k -> new Account(k, INITIAL_BALANCE))
+                            .collect(Collectors.toMap(Account::getAccountNumber, acnt -> acnt))
+            );
+        } finally {
+            writeLock.unlock();
+        }
     }
 
 }
