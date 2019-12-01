@@ -78,4 +78,15 @@ public class Transfer {
         result = 31 * result + toAccount.hashCode();
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "Transfer{" +
+                "id=" + id +
+                ", fromAccount=" + fromAccount.getAccountNumber() +
+                ", toAccount=" + toAccount.getAccountNumber() +
+                ", amount=" + amount +
+                ", status=" + status.get() +
+                '}';
+    }
 }

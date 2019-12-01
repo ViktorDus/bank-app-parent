@@ -1,6 +1,7 @@
-package ru.vdusanyuk.bank;
+package ru.vdusanyuk.bank.dao;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
 import org.glassfish.jersey.test.TestProperties;
@@ -18,14 +19,14 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNotEquals;
 
 /**
  * test cases based on Jersy servlet + Jetty container
  */
 
 public class BankEntryPointTest extends JerseyTest {
-    private final static Logger logger = Logger.getLogger(BankEntryPointTest.class);
+    private final static Logger logger = LoggerFactory.getLogger(BankEntryPointTest.class);
     private static String TRANSFER_MONEY_PATH = "/bankService/transfer";
 
     @Override
@@ -44,7 +45,7 @@ public class BankEntryPointTest extends JerseyTest {
     @After
     public void tearDown() throws Exception {
         //need some time for all threads processed and stopped
-        Thread.sleep(3000);
+        Thread.sleep(2000);
         super.tearDown();
         logger.info("End test");
     }
@@ -56,10 +57,10 @@ public class BankEntryPointTest extends JerseyTest {
 
     @Test
     public void testAccountRequestById() {
-        logger.info("Strart testGetAccountById");
+        logger.info("Start testGetAccountById");
         ServiceResponse serviceResponse = doAccountRequest(5L);
         assertEquals("Should return responseStatus SUCCESS", "SUCCESS", serviceResponse.getResponseStatus());
-        logger.info(serviceResponse);
+        logger.info("End: {}", serviceResponse);
     }
 
     @Test
@@ -67,12 +68,13 @@ public class BankEntryPointTest extends JerseyTest {
         logger.info("Strart testGetAccountByNoneExistingId");
         ServiceResponse serviceResponse = doAccountRequest(11L);
         assertEquals("Should return responseStatus ERROR", "ERROR", serviceResponse.getResponseStatus());
-        logger.info(serviceResponse);
+        logger.info("End: {}", serviceResponse);
     }
 
     @Test
     public void testSingleTransfer() throws Exception {
         logger.info("Strart testSingleTransfer");
+        BankHolder bankHolder = BankHolder.getInstance();
         ServiceResponse serviceResponse = doTrasferRequest(3L, 9L, 33L);
         assertEquals("Should return responseStatus SUCCESS", "SUCCESS", serviceResponse.getResponseStatus());
         //check if deposit happened
@@ -83,10 +85,12 @@ public class BankEntryPointTest extends JerseyTest {
         serviceResponse = doAccountRequest(3);
         assertEquals("Should return responseStatus SUCCESS", "SUCCESS", serviceResponse.getResponseStatus());
         assertEquals(67L, (long) serviceResponse.getBalance());
+        bankHolder.getBankAccounts().values().forEach(System.out::println);
         checkTotalBalance();
         //wait for asynchronos processing the pending transactions
-        Thread.sleep(1000);
+        Thread.sleep(300);
         //additional check after pending queue processed
+        bankHolder.getBankAccounts().values().forEach(System.out::println);
         serviceResponse = doAccountRequest(9L);
         assertEquals("Should return responseStatus SUCCESS", "SUCCESS", serviceResponse.getResponseStatus());
         assertEquals(133L, (long) serviceResponse.getBalance());
@@ -98,7 +102,7 @@ public class BankEntryPointTest extends JerseyTest {
         logger.info("Strart testTransferNegativeAmount");
         ServiceResponse serviceResponse = doTrasferRequest(4, 8, -20);
         assertEquals("Should return responseStatus ERROR", "ERROR", serviceResponse.getResponseStatus());
-        logger.info(serviceResponse);
+        logger.info("End: {}", serviceResponse);
     }
 
     @Test
@@ -108,7 +112,7 @@ public class BankEntryPointTest extends JerseyTest {
         assertEquals("Should return responseStatus SUCCESS", "SUCCESS", serviceResponse.getResponseStatus());
         serviceResponse = doTrasferRequest(3, 9, 60);
         assertEquals("Should return responseStatus ERROR", "ERROR", serviceResponse.getResponseStatus());
-        logger.info(serviceResponse);
+        logger.info("End: {}", serviceResponse);
         //make sure balance id not changed
         checkTotalBalance();
     }

@@ -57,4 +57,13 @@ public class OperationResult {
         return balance;
     }
 
+    @Override
+    public String toString() {
+        return "OperationResult{" +
+                "code=" + code +
+                ", accountNumber=" + accountNumber +
+                ", balance=" + balance +
+                ", errorMessage='" + errorMessage + '\'' +
+                '}';
+    }
 }
