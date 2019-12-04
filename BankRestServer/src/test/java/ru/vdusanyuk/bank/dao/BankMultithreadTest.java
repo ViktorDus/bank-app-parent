@@ -1,52 +1,38 @@
 package ru.vdusanyuk.bank.dao;
 
 import org.apache.log4j.Logger;
-import org.glassfish.jersey.server.ResourceConfig;
-import org.glassfish.jersey.test.JerseyTest;
-import org.glassfish.jersey.test.TestProperties;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import ru.vdusanyuk.bank.json.ServiceResponse;
-import ru.vdusanyuk.bank.json.TransferRequest;
-import ru.vdusanyuk.bank.dao.BankHolder;
-import ru.vdusanyuk.bank.rest.EntryPoint;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.core.Application;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import ru.vdusanyuk.bank.dao.model.OperationResult;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 
 /**
  * test cases based on Jersy servlet + Jetty container
  */
 
-public class BankMultithreadTest extends JerseyTest {
+public class BankMultithreadTest  {
     private final static Logger logger = Logger.getLogger(BankMultithreadTest.class);
     private static String TRANSFER_MONEY_PATH = "/bankService/transfer";
 
-    @Override
-    public Application configure() {
-       // enable(TestProperties.LOG_TRAFFIC);
-       // enable(TestProperties.DUMP_ENTITY);
-        return new ResourceConfig(EntryPoint.class);
-    }
+    private BankHolder bankHolder;
 
     @Before
-    public void setUp() throws Exception {
-        super.setUp();
-        BankHolder.getInstance().initBankAccounts();
+    public void setUp() {
+        bankHolder = BankHolder.getInstance();
+        bankHolder.initBankAccounts();
     }
 
     @After
     public void tearDown() throws Exception {
-        Thread.sleep(3000);
-        super.tearDown();
+        Thread.sleep(300);
         logger.info("End test");
     }
 
@@ -55,7 +41,7 @@ public class BankMultithreadTest extends JerseyTest {
         ExecutorService executor = Executors.newFixedThreadPool(10);
         for (int j=0; j < 20; j++){
             for (int k=0; k < 5; k++){
-                doAccountRequest(getRndAccountNum(0));
+                executor.submit(() ->doAccountRequest(getRndAccountNum(0)));
                 for (int m=0; m < 10; m++){
                     int fromAddrNum = getRndAccountNum(0);
                     executor.submit(() -> doTrasferRequest(fromAddrNum, getRndAccountNum(fromAddrNum), getRND50()) );
@@ -69,26 +55,28 @@ public class BankMultithreadTest extends JerseyTest {
         checkTotalBalance();
     }
 
-    private ServiceResponse doTrasferRequest(long fromAccountNumber, long toAccountNumber, long amount) throws Exception {
-        TransferRequest transfer = new TransferRequest(fromAccountNumber, toAccountNumber, amount);
-        Response output = target(TRANSFER_MONEY_PATH).request().post(Entity.entity(transfer, MediaType.APPLICATION_JSON));
-        if (200 == output.getStatus()) {
-            Thread.sleep(5);
-            return output.readEntity(ServiceResponse.class);
-        }
-        throw new Exception("Service HTTP responded with status: " + output.getStatus());
+    private OperationResult doTrasferRequest(long fromAccountNumber, long toAccountNumber, long amount) throws Exception {
+
+        OperationResult output = bankHolder.submitTransfer(fromAccountNumber, toAccountNumber, amount);
+        assertNotNull(output);
+        assertEquals("Should return code 0", 0, output.getCode());
+        assertEquals(Long.valueOf(fromAccountNumber), output.getAccountNumber());
+        Thread.sleep(5);
+        return output;
     }
 
     private void checkTotalBalance()  {
-        Response output = target("/bankService/total").request().get();
-        assertEquals("should return status 200", 200, output.getStatus());
-        String responseBalance = output.readEntity(String.class);
-        assertEquals("Should return  total balance 1000", "1000", responseBalance);
+        Long total = bankHolder.getTotalBalance();
+        assertNotNull(total);
+        assertEquals("Should return  total balance 1000", 1000L, total.longValue());
     }
 
-    private void doAccountRequest(long AccountNumber) {
-        Response output = target("/bankService/account/"+AccountNumber).request().get();
-        assertEquals("Should return status 200", 200, output.getStatus());
+    private void doAccountRequest(long accountNumber) {
+        OperationResult output = bankHolder.getAccount(accountNumber);
+        assertNotNull(output);
+        assertEquals("Should return status SUCCESS=0", 0, output.getCode());
+        assertEquals(Long.valueOf(accountNumber), output.getAccountNumber());
+        assertNotNull(output.getBalance());
     }
 
     //generate random amounts in range 1...50

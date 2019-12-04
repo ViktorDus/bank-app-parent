@@ -85,12 +85,12 @@ public class BankEntryPointTest extends JerseyTest {
         serviceResponse = doAccountRequest(3);
         assertEquals("Should return responseStatus SUCCESS", "SUCCESS", serviceResponse.getResponseStatus());
         assertEquals(67L, (long) serviceResponse.getBalance());
-        bankHolder.getBankAccounts().values().forEach(System.out::println);
+     //   bankHolder.getBankAccounts().values().forEach(System.out::println);
         checkTotalBalance();
         //wait for asynchronos processing the pending transactions
         Thread.sleep(300);
         //additional check after pending queue processed
-        bankHolder.getBankAccounts().values().forEach(System.out::println);
+     //   bankHolder.getBankAccounts().values().forEach(System.out::println);
         serviceResponse = doAccountRequest(9L);
         assertEquals("Should return responseStatus SUCCESS", "SUCCESS", serviceResponse.getResponseStatus());
         assertEquals(133L, (long) serviceResponse.getBalance());
